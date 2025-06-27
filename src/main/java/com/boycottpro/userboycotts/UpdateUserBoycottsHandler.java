@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 
+import com.boycottpro.models.ResponseMessage;
 import com.boycottpro.userboycotts.models.CurrentReason;
 import com.boycottpro.userboycotts.models.NewReason;
 import com.boycottpro.userboycotts.models.UpdateReasonsForm;
@@ -40,10 +41,14 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             String userId = form.getUser_id();
             String companyId = form.getCompany_id();
             if (userId == null || companyId == null ) {
+                ResponseMessage message = new ResponseMessage(400,
+                        "sorry, there was an error processing your request",
+                        "user_id or company_id is null!");
+                String responseBody = objectMapper.writeValueAsString(message);
                 return new APIGatewayProxyResponseEvent()
                         .withStatusCode(400)
                         .withHeaders(Map.of("Content-Type", "application/json"))
-                        .withBody("user_id or company_id is null!");
+                        .withBody(responseBody);
             }
             String companyName = form.getCompany_name();
             CompanyValidator companyValidator = new CompanyValidator(this.dynamoDb,"companies");
@@ -54,9 +59,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             }
             boolean removalSuccess = removeSelectedReasons(userId, form);
             if (!removalSuccess) {
-                return new APIGatewayProxyResponseEvent()
-                        .withStatusCode(500)
-                        .withBody("{\"error\": \"Failed to remove selected reasons.\"}");
+                throw new RuntimeException("Failed to remove selected reasons.");
             }
             for(CurrentReason reasonToRemove: form.getCurrentReasons()) {
                 if (!reasonToRemove.isPersonal_reason() && reasonToRemove.isRemove() &&
@@ -72,9 +75,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                     form.getNewReasons(),
                     form.getCurrentPersonalReason());
             if (!additionSuccess) {
-                return new APIGatewayProxyResponseEvent()
-                        .withStatusCode(500)
-                        .withBody("{\"error\": \"Failed to add new reasons.\"}");
+                throw new RuntimeException("Failed to add new reasons.");
             }
             for(NewReason reasonToAdd: form.getNewReasons()) {
                 String cause_id = reasonToAdd.getCause_id();
@@ -98,17 +99,27 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             if (!userIsBoycottingCompany(userId, companyId)) {
                 decrementCompanyBoycottCount(companyId);
             }
-
+            ResponseMessage message = new ResponseMessage(200,"Boycott reasons updated successfully.",
+                    "no issues changing username");
+            String responseBody = objectMapper.writeValueAsString(message);
             return new APIGatewayProxyResponseEvent()
                     .withStatusCode(200)
                     .withHeaders(Map.of("Content-Type", "application/json"))
-                    .withBody("{\"message\": \"Boycott reasons updated successfully.\"}");
-
+                    .withBody(responseBody);
         } catch (Exception e) {
-            e.printStackTrace();
+            ResponseMessage message = new ResponseMessage(500,
+                    "sorry, there was an error processing your request",
+                    "Unexpected server error: " + e.getMessage());
+            String responseBody = null;
+            try {
+                responseBody = objectMapper.writeValueAsString(message);
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
             return new APIGatewayProxyResponseEvent()
                     .withStatusCode(500)
-                    .withBody("{\"error\": \"Unexpected server error: " + e.getMessage() + "\"}");
+                    .withHeaders(Map.of("Content-Type", "application/json"))
+                    .withBody(responseBody);
         }
     }
     private void updateCauseCompanyStats(String causeId, String companyId,
