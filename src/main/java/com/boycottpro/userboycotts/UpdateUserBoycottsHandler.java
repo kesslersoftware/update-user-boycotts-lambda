@@ -38,6 +38,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
         try {
             UpdateReasonsForm form = objectMapper.readValue(event.getBody(), UpdateReasonsForm.class);
+            System.out.println("UpdateReasonsForm = " + form.toString());
             String userId = form.getUser_id();
             String companyId = form.getCompany_id();
             if (userId == null || companyId == null ) {
@@ -107,6 +108,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                     .withHeaders(Map.of("Content-Type", "application/json"))
                     .withBody(responseBody);
         } catch (Exception e) {
+            e.printStackTrace();
             ResponseMessage message = new ResponseMessage(500,
                     "sorry, there was an error processing your request",
                     "Unexpected server error: " + e.getMessage());
@@ -114,6 +116,8 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             try {
                 responseBody = objectMapper.writeValueAsString(message);
             } catch (JsonProcessingException ex) {
+                System.out.println("JsonProcessingException");
+                ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
             return new APIGatewayProxyResponseEvent()

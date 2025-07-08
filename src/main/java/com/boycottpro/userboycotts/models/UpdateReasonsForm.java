@@ -71,4 +71,16 @@ public class UpdateReasonsForm {
     public void setCompany_name(String company_name) {
         this.company_name = company_name;
     }
+
+    @Override
+    public String toString() {
+        return "UpdateReasonsForm{" +
+                "user_id='" + user_id + '\'' +
+                ", company_id='" + company_id + '\'' +
+                ", company_name='" + company_name + '\'' +
+                ", currentReasons=" + currentReasons +
+                ", newReasons=" + newReasons +
+                ", currentPersonalReason='" + currentPersonalReason + '\'' +
+                '}';
+    }
 }
