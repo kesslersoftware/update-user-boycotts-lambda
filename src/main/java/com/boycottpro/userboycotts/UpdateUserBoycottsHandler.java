@@ -74,7 +74,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             }
             boolean additionSuccess = addNewReasons(userId, companyId, companyName,
                     form.getNewReasons(),
-                    form.getCurrentPersonalReason());
+                    form.getPersonal_reason());
             if (!additionSuccess) {
                 throw new RuntimeException("Failed to add new reasons.");
             }

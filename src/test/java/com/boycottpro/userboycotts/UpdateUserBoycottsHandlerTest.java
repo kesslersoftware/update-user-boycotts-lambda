@@ -3,13 +3,11 @@ package com.boycottpro.userboycotts;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
-import com.boycottpro.userboycotts.UpdateUserBoycottsHandler;
 import com.boycottpro.userboycotts.models.CurrentReason;
 import com.boycottpro.userboycotts.models.NewReason;
 import com.boycottpro.userboycotts.models.UpdateReasonsForm;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -73,7 +71,7 @@ class UpdateUserBoycottsHandlerTest {
         when(dynamoDb.getItem(any(GetItemRequest.class)))
                 .thenReturn(companyMockResponse)
                 .thenReturn(causeMockResponse);
-        form.setCurrentPersonalReason("personal reason");
+        form.setPersonal_reason("personal reason");
 
         APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
                 .withBody(objectMapper.writeValueAsString(form));
