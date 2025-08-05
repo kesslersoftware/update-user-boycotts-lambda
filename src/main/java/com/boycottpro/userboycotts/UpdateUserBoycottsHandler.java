@@ -62,15 +62,21 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             if (!removalSuccess) {
                 throw new RuntimeException("Failed to remove selected reasons.");
             }
+            Set<String> causeIds = new HashSet<>();
             for(CurrentReason reasonToRemove: form.getCurrentReasons()) {
-                if (!reasonToRemove.isPersonal_reason() && reasonToRemove.isRemove() &&
-                        reasonToRemove.getCompany_cause_id() != null &&
-                        !reasonToRemove.getCompany_cause_id().isEmpty())
-                {
+                if(!reasonToRemove.isPersonal_reason() ) {
                     int index = reasonToRemove.getCompany_cause_id().indexOf("#");
                     String cause_id = reasonToRemove.getCompany_cause_id().substring(index+1);
-                    updateCauseCompanyStats(cause_id, companyId, companyName, null, -1);
+                    if (reasonToRemove.isRemove() &&
+                            reasonToRemove.getCompany_cause_id() != null &&
+                            !reasonToRemove.getCompany_cause_id().isEmpty())
+                    {
+                        updateCauseCompanyStats(cause_id, companyId, companyName, null, -1);
+                    } else if (!reasonToRemove.isRemove()) {
+                        causeIds.add(cause_id);
+                    }
                 }
+
             }
             boolean additionSuccess = addNewReasons(userId, companyId, companyName,
                     form.getNewReasons(),
@@ -80,7 +86,9 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             }
             for(NewReason reasonToAdd: form.getNewReasons()) {
                 String cause_id = reasonToAdd.getCause_id();
-                updateCauseCompanyStats(cause_id, companyId, companyName, reasonToAdd.getCause_desc(), 1);
+                if(!causeIds.contains(cause_id)) {
+                    updateCauseCompanyStats(cause_id, companyId, companyName, reasonToAdd.getCause_desc(), 1);
+                }
             }
             Set<NewReason> newlyFollowedCauses = getNewlyFollowedCauseIds(userId, form.getNewReasons());
             System.out.println("new causes size = " + newlyFollowedCauses.size());
