@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -73,8 +74,15 @@ class UpdateUserBoycottsHandlerTest {
                 .thenReturn(causeMockResponse);
         form.setPersonal_reason("personal reason");
 
-        APIGatewayProxyRequestEvent request = new APIGatewayProxyRequestEvent()
-                .withBody(objectMapper.writeValueAsString(form));
+        APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent()
+                .withBody(objectMapper.writeValueAsString(form));;
+        Map<String, String> claims = Map.of("sub", "11111111-2222-3333-4444-555555555555");
+        Map<String, Object> authorizer = new HashMap<>();
+        authorizer.put("claims", claims);
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext rc = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        rc.setAuthorizer(authorizer);
+        event.setRequestContext(rc);
 
         // Mock query for userIsAlreadyFollowing (returns empty)
         when(dynamoDb.query(any(QueryRequest.class))).thenReturn(QueryResponse.builder().items(Collections.emptyList()).build());
@@ -85,7 +93,7 @@ class UpdateUserBoycottsHandlerTest {
         // Mock updateItem for cause and company increments
         when(dynamoDb.updateItem(any(UpdateItemRequest.class))).thenReturn(UpdateItemResponse.builder().build());
 
-        APIGatewayProxyResponseEvent response = handler.handleRequest(request, mock(Context.class));
+        APIGatewayProxyResponseEvent response = handler.handleRequest(event, mock(Context.class));
 
         assertEquals(200, response.getStatusCode());
 

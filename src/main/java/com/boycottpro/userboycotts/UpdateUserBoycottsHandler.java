@@ -11,6 +11,7 @@ import com.boycottpro.userboycotts.models.NewReason;
 import com.boycottpro.userboycotts.models.UpdateReasonsForm;
 import com.boycottpro.utilities.CauseValidator;
 import com.boycottpro.utilities.CompanyValidator;
+import com.boycottpro.utilities.JwtUtility;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -37,20 +38,12 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
         try {
+            String sub = JwtUtility.getSubFromRestEvent(event);
+            if (sub == null) return response(401, "Unauthorized");
             UpdateReasonsForm form = objectMapper.readValue(event.getBody(), UpdateReasonsForm.class);
+            form.setUser_id(sub);
             System.out.println("UpdateReasonsForm = " + form.toString());
-            String userId = form.getUser_id();
             String companyId = form.getCompany_id();
-            if (userId == null || companyId == null ) {
-                ResponseMessage message = new ResponseMessage(400,
-                        "sorry, there was an error processing your request",
-                        "user_id or company_id is null!");
-                String responseBody = objectMapper.writeValueAsString(message);
-                return new APIGatewayProxyResponseEvent()
-                        .withStatusCode(400)
-                        .withHeaders(Map.of("Content-Type", "application/json"))
-                        .withBody(responseBody);
-            }
             String companyName = form.getCompany_name();
             CompanyValidator companyValidator = new CompanyValidator(this.dynamoDb,"companies");
             boolean validCompany = companyValidator.validateCompanyName(companyId,companyName);
@@ -58,7 +51,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                 System.out.println("company_name do not match!");
                 throw new RuntimeException("not a valid company!");
             }
-            boolean removalSuccess = removeSelectedReasons(userId, form);
+            boolean removalSuccess = removeSelectedReasons(sub, form);
             if (!removalSuccess) {
                 throw new RuntimeException("Failed to remove selected reasons.");
             }
@@ -78,7 +71,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                 }
 
             }
-            boolean additionSuccess = addNewReasons(userId, companyId, companyName,
+            boolean additionSuccess = addNewReasons(sub, companyId, companyName,
                     form.getNewReasons(),
                     form.getPersonal_reason());
             if (!additionSuccess) {
@@ -90,7 +83,7 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                     updateCauseCompanyStats(cause_id, companyId, companyName, reasonToAdd.getCause_desc(), 1);
                 }
             }
-            Set<NewReason> newlyFollowedCauses = getNewlyFollowedCauseIds(userId, form.getNewReasons());
+            Set<NewReason> newlyFollowedCauses = getNewlyFollowedCauseIds(sub, form.getNewReasons());
             System.out.println("new causes size = " + newlyFollowedCauses.size());
             for (NewReason cause : newlyFollowedCauses) {
                 System.out.println("inserting cause_id = " + cause.getCause_id());
@@ -100,21 +93,18 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                     System.out.println("cause ID = " + cause.getCause_id() + " is not valid!");
                     continue;
                 }
-                insertUserCause(userId, cause);
+                insertUserCause(sub, cause);
                 incrementCauseFollowerCount(cause);
             }
 
             // After all transactions, check if user is still boycotting this company
-            if (!userIsBoycottingCompany(userId, companyId)) {
+            if (!userIsBoycottingCompany(sub, companyId)) {
                 decrementCompanyBoycottCount(companyId);
             }
             ResponseMessage message = new ResponseMessage(200,"Boycott reasons updated successfully.",
                     "no issues changing username");
             String responseBody = objectMapper.writeValueAsString(message);
-            return new APIGatewayProxyResponseEvent()
-                    .withStatusCode(200)
-                    .withHeaders(Map.of("Content-Type", "application/json"))
-                    .withBody(responseBody);
+            return response(200,responseBody);
         } catch (Exception e) {
             e.printStackTrace();
             ResponseMessage message = new ResponseMessage(500,
@@ -128,11 +118,14 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                 ex.printStackTrace();
                 throw new RuntimeException(ex);
             }
-            return new APIGatewayProxyResponseEvent()
-                    .withStatusCode(500)
-                    .withHeaders(Map.of("Content-Type", "application/json"))
-                    .withBody(responseBody);
+            return response(500,responseBody);
         }
+    }
+    private APIGatewayProxyResponseEvent response(int status, String body) {
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(status)
+                .withHeaders(Map.of("Content-Type", "application/json"))
+                .withBody(body);
     }
     private void updateCauseCompanyStats(String causeId, String companyId,
                                          String companyName, String causeDesc, int delta) {
