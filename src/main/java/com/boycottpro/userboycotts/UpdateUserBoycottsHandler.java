@@ -37,9 +37,10 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
+        String sub = null;
         try {
-            String sub = JwtUtility.getSubFromRestEvent(event);
-            if (sub == null) return response(401, "Unauthorized");
+            sub = JwtUtility.getSubFromRestEvent(event);
+            if (sub == null) return response(401, Map.of("message", "Unauthorized"));
             UpdateReasonsForm form = objectMapper.readValue(event.getBody(), UpdateReasonsForm.class);
             form.setUser_id(sub);
             System.out.println("UpdateReasonsForm = " + form.toString());
@@ -103,29 +104,23 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
             }
             ResponseMessage message = new ResponseMessage(200,"Boycott reasons updated successfully.",
                     "no issues changing username");
-            String responseBody = objectMapper.writeValueAsString(message);
-            return response(200,responseBody);
+            return response(200,message);
         } catch (Exception e) {
-            e.printStackTrace();
-            ResponseMessage message = new ResponseMessage(500,
-                    "sorry, there was an error processing your request",
-                    "Unexpected server error: " + e.getMessage());
-            String responseBody = null;
-            try {
-                responseBody = objectMapper.writeValueAsString(message);
-            } catch (JsonProcessingException ex) {
-                System.out.println("JsonProcessingException");
-                ex.printStackTrace();
-                throw new RuntimeException(ex);
-            }
-            return response(500,responseBody);
+            System.out.println(e.getMessage() + " for user " + sub);
+            return response(500,Map.of("error", "Unexpected server error: " + e.getMessage()) );
         }
     }
-    private APIGatewayProxyResponseEvent response(int status, String body) {
+    private APIGatewayProxyResponseEvent response(int status, Object body) {
+        String responseBody = null;
+        try {
+            responseBody = objectMapper.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
         return new APIGatewayProxyResponseEvent()
                 .withStatusCode(status)
                 .withHeaders(Map.of("Content-Type", "application/json"))
-                .withBody(body);
+                .withBody(responseBody);
     }
     private void updateCauseCompanyStats(String causeId, String companyId,
                                          String companyName, String causeDesc, int delta) {

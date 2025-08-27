@@ -1,0 +1,5 @@
+aws lambda update-function-code \
+    --function-name "update-user-boycotts-lambda" \
+    --region "us-east-1" \
+    --profile "boycottpro-dev-dev" \
+    --zip-file "fileb://$(pwd -W)/target/update-user-boycotts-lambda.jar"
