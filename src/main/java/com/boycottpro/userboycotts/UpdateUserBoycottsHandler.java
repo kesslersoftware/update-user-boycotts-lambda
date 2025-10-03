@@ -12,6 +12,7 @@ import com.boycottpro.userboycotts.models.UpdateReasonsForm;
 import com.boycottpro.utilities.CauseValidator;
 import com.boycottpro.utilities.CompanyValidator;
 import com.boycottpro.utilities.JwtUtility;
+import com.boycottpro.utilities.Logger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -38,22 +39,31 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
         String sub = null;
+        int lineNum = 42;
         try {
             sub = JwtUtility.getSubFromRestEvent(event);
-            if (sub == null) return response(401, Map.of("message", "Unauthorized"));
+            if (sub == null) {
+            Logger.error(46, sub, "user is Unauthorized");
+            return response(401, Map.of("message", "Unauthorized"));
+            }
+            lineNum = 49;
             UpdateReasonsForm form = objectMapper.readValue(event.getBody(), UpdateReasonsForm.class);
             form.setUser_id(sub);
-            System.out.println("UpdateReasonsForm = " + form.toString());
             String companyId = form.getCompany_id();
             String companyName = form.getCompany_name();
+            lineNum = 54;
             CompanyValidator companyValidator = new CompanyValidator(this.dynamoDb,"companies");
             boolean validCompany = companyValidator.validateCompanyName(companyId,companyName);
+            lineNum = 57;
             if(!validCompany) {
-                System.out.println("company_name do not match!");
+                Logger.error(59, sub, "user is Unauthorized");
                 throw new RuntimeException("not a valid company!");
             }
+            lineNum = 62;
             boolean removalSuccess = removeSelectedReasons(sub, form);
+            lineNum = 64;
             if (!removalSuccess) {
+                Logger.error(66, sub, "user is Unauthorized");
                 throw new RuntimeException("Failed to remove selected reasons.");
             }
             Set<String> causeIds = new HashSet<>();
@@ -70,43 +80,52 @@ public class UpdateUserBoycottsHandler implements RequestHandler<APIGatewayProxy
                         causeIds.add(cause_id);
                     }
                 }
-
             }
+            lineNum = 84;
             boolean additionSuccess = addNewReasons(sub, companyId, companyName,
                     form.getNewReasons(),
                     form.getPersonal_reason());
+            lineNum = 88;
             if (!additionSuccess) {
+                Logger.error(90, sub, "user is Unauthorized");
                 throw new RuntimeException("Failed to add new reasons.");
             }
             for(NewReason reasonToAdd: form.getNewReasons()) {
+                lineNum = 94;
                 String cause_id = reasonToAdd.getCause_id();
                 if(!causeIds.contains(cause_id)) {
+                    lineNum = 97;
                     updateCauseCompanyStats(cause_id, companyId, companyName, reasonToAdd.getCause_desc(), 1);
                 }
             }
+            lineNum = 101;
             Set<NewReason> newlyFollowedCauses = getNewlyFollowedCauseIds(sub, form.getNewReasons());
-            System.out.println("new causes size = " + newlyFollowedCauses.size());
+            lineNum = 103;
             for (NewReason cause : newlyFollowedCauses) {
-                System.out.println("inserting cause_id = " + cause.getCause_id());
                 CauseValidator causeValidator = new CauseValidator(this.dynamoDb,"causes");
                 boolean validCause = causeValidator.validateCauseDescription(cause.getCause_id(), cause.getCause_desc());
                 if(!validCause) {
-                    System.out.println("cause ID = " + cause.getCause_id() + " is not valid!");
+                    Logger.error(108, sub, "cause_id is not valid: " + cause.getCause_id());
                     continue;
                 }
+                lineNum = 111;
                 insertUserCause(sub, cause);
+                lineNum = 113;
                 incrementCauseFollowerCount(cause);
             }
-
+            lineNum = 116;
             // After all transactions, check if user is still boycotting this company
             if (!userIsBoycottingCompany(sub, companyId)) {
+                lineNum = 119;
                 decrementCompanyBoycottCount(companyId);
             }
+            lineNum = 122;
             ResponseMessage message = new ResponseMessage(200,"Boycott reasons updated successfully.",
                     "no issues changing username");
+            lineNum = 125;
             return response(200,message);
         } catch (Exception e) {
-            System.out.println(e.getMessage() + " for user " + sub);
+            Logger.error(lineNum, sub, e.getMessage());
             return response(500,Map.of("error", "Unexpected server error: " + e.getMessage()) );
         }
     }
